@@ -4,12 +4,11 @@ import type { BusinessIdea } from '@/ai/flows/generate-business-ideas';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { Building, Globe, Newspaper, TrendingUp, BarChart, FileText, Loader2, Target, Lightbulb, AlertTriangle, CheckCircle, Bookmark, Sparkles, Lock } from 'lucide-react';
+import { Building, Globe, Newspaper, TrendingUp, BarChart, FileText, Loader2, Target, Lightbulb, AlertTriangle, CheckCircle, Bookmark, Sparkles } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import { summarizeTrend, type SummarizeTrendOutput } from '@/ai/flows/summarize-trend';
-import { generateBusinessPlan, type GenerateBusinessPlanOutput } from '@/ai/flows/generate-business-plan';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedIdeas } from '@/hooks/use-saved-ideas';
@@ -37,25 +36,13 @@ const summarySections = [
     { key: 'opportunities', title: 'Key Opportunities', icon: CheckCircle },
 ] as const;
 
-const planSections = [
-    { key: 'executiveSummary', title: 'Executive Summary', icon: Lightbulb },
-    { key: 'problemAndSolution', title: 'Problem & Solution', icon: Target },
-    { key: 'targetAudience', title: 'Target Audience', icon: Target },
-    { key: 'marketingAndSales', title: 'Marketing & Sales', icon: TrendingUp },
-    { key: 'revenueModel', title: 'Revenue Model', icon: BarChart },
-] as const;
-
-
-export function IdeaCard({ idea, index }: { idea: BusinessIdea, index: number }) {
+export function IdeaCard({ idea, index, isPro }: { idea: BusinessIdea, index: number, isPro: boolean }) {
     const { toast } = useToast();
     const { isIdeaSaved, toggleSaveIdea } = useSavedIdeas();
     const [isSummarizing, setIsSummarizing] = useState(false);
-    const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
     const [summary, setSummary] = useState<SummarizeTrendOutput | null>(null);
-    const [plan, setPlan] = useState<GenerateBusinessPlanOutput | null>(null);
     const [isSummaryOpen, setIsSummaryOpen] = useState(false);
-    const [isPlanOpen, setIsPlanOpen] = useState(false);
-
+    
     const isSaved = isIdeaSaved(idea);
 
     const color = useMemo(() => cardColors[index % cardColors.length], [index]);
@@ -80,24 +67,6 @@ export function IdeaCard({ idea, index }: { idea: BusinessIdea, index: number })
         }
     };
     
-    const handleGeneratePlan = async () => {
-        setIsGeneratingPlan(true);
-        try {
-            const result = await generateBusinessPlan({ idea: idea.idea, source: idea.source });
-            setPlan(result);
-            setIsPlanOpen(true);
-        } catch (error) {
-            console.error("Failed to generate plan:", error);
-            toast({
-                title: 'Error',
-                description: 'Could not generate a business plan. Please try again.',
-                variant: 'destructive',
-            });
-        } finally {
-            setIsGeneratingPlan(false);
-        }
-    };
-
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         toggleSaveIdea(idea);
@@ -106,6 +75,10 @@ export function IdeaCard({ idea, index }: { idea: BusinessIdea, index: number })
             description: isSaved ? 'You can always find it again later.' : 'You can find all your saved ideas on the "Saved" page.',
         });
     }
+
+    const planLink = isPro
+      ? `/plan?idea=${encodeURIComponent(idea.idea)}&source=${encodeURIComponent(idea.source)}`
+      : '/pro';
 
     return (
         <>
@@ -147,10 +120,12 @@ export function IdeaCard({ idea, index }: { idea: BusinessIdea, index: number })
                             {isSummarizing ? <Loader2 className="animate-spin" /> : <FileText />}
                             <span className="ml-2">Summarize</span>
                         </Button>
-                        <Button size="sm" variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 hover:text-primary" onClick={handleGeneratePlan} disabled={isGeneratingPlan}>
-                            {isGeneratingPlan ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                             <span className="ml-2">Generate Plan</span>
-                             <Badge variant="secondary" className="ml-2 !text-xs bg-primary/20 text-primary border-primary/20">PRO</Badge>
+                        <Button size="sm" variant="outline" className="border-primary/50 text-primary hover:bg-primary/10 hover:text-primary" asChild>
+                             <Link href={planLink}>
+                                <Sparkles />
+                                <span className="ml-2">Generate Plan</span>
+                                <Badge variant="secondary" className="ml-2 !text-xs bg-primary/20 text-primary border-primary/20">PRO</Badge>
+                             </Link>
                         </Button>
                     </CardFooter>
                 </Card>
@@ -159,7 +134,7 @@ export function IdeaCard({ idea, index }: { idea: BusinessIdea, index: number })
             <Dialog open={isSummaryOpen} onOpenChange={setIsSummaryOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Trend Analysis (Free)</DialogTitle>
+                        <DialogTitle>Trend Analysis</DialogTitle>
                         <DialogDescription className="whitespace-normal break-words">{idea.idea}</DialogDescription>
                     </DialogHeader>
                     {summary && (
@@ -186,67 +161,6 @@ export function IdeaCard({ idea, index }: { idea: BusinessIdea, index: number })
                                     </div>
                                 );
                             })}
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-
-             <Dialog open={isPlanOpen} onOpenChange={setIsPlanOpen}>
-                <DialogContent className="max-w-3xl">
-                    <DialogHeader>
-                        <DialogTitle className='flex items-center gap-2'>{plan?.title || 'Business Plan'} <Badge variant="default" className='!text-xs'>PRO</Badge></DialogTitle>
-                        <DialogDescription className="whitespace-normal break-words">This is an actionable plan to turn your idea into a real business. Go Pro to unlock.</DialogDescription>
-                    </DialogHeader>
-                    {plan && (
-                        <div className="relative">
-                            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-4 -mr-4">
-                                {planSections.map((section) => {
-                                    // @ts-ignore
-                                    const content = plan[section.key];
-                                    if (!content || (Array.isArray(content) && content.length === 0)) return null;
-                                    
-                                    const isProblemSolution = section.key === 'problemAndSolution';
-                                    const problem = isProblemSolution ? content.problem : null;
-                                    const solution = isProblemSolution ? content.solution : null;
-
-                                    return (
-                                        <div key={section.key} className="flex items-start gap-4">
-                                            <div className="p-2 bg-primary/10 rounded-full text-primary mt-1">
-                                                <section.icon className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-semibold text-foreground">{section.title}</h4>
-                                                <div className="blur-sm select-none">
-                                                    {isProblemSolution ? (
-                                                        <div className='mt-1 space-y-2 text-muted-foreground'>
-                                                            <p><strong className='font-semibold text-foreground'>The Problem:</strong> {problem}</p>
-                                                            <p><strong className='font-semibold text-foreground'>Our Solution:</strong> {solution}</p>
-                                                        </div>
-                                                    ) : Array.isArray(content) ? (
-                                                        <ul className="list-disc pl-5 mt-1 text-muted-foreground space-y-1">
-                                                            {content.map((item: string, i: number) => <li key={i}>{item}</li>)}
-                                                        </ul>
-                                                    ) : (
-                                                        <p className="text-muted-foreground mt-1">{content}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
-                                <div className="text-center p-8 bg-secondary rounded-lg shadow-2xl border border-primary/20">
-                                    <div className="mx-auto bg-primary/10 text-primary p-3 rounded-full w-fit">
-                                        <Lock className="h-8 w-8" />
-                                    </div>
-                                    <h3 className="text-2xl font-bold mt-4">Unlock Business Plan</h3>
-                                    <p className="text-muted-foreground mt-2 mb-6">This is a Pro feature. Upgrade to get instant access.</p>
-                                    <Button asChild size="lg">
-                                        <Link href="/pro">Go Pro</Link>
-                                    </Button>
-                                </div>
-                            </div>
                         </div>
                     )}
                 </DialogContent>

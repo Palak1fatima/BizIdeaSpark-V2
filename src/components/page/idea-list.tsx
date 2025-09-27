@@ -7,9 +7,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 
 type IdeaListProps = {
     ideas: BusinessIdea[];
+    isPro: boolean;
 };
 
-export function IdeaList({ ideas }: IdeaListProps) {
+export function IdeaList({ ideas, isPro }: IdeaListProps) {
     if (ideas.length === 0) {
         return (
             <div className="text-center py-24 bg-card rounded-lg border">
@@ -26,7 +27,7 @@ export function IdeaList({ ideas }: IdeaListProps) {
                 className="grid sm:grid-cols-2 xl:grid-cols-3 gap-6"
             >
                 {ideas.map((idea, index) => (
-                    <IdeaCard key={`${idea.idea}-${index}`} idea={idea} index={index} />
+                    <IdeaCard key={`${idea.idea}-${index}`} idea={idea} index={index} isPro={isPro} />
                 ))}
             </motion.div>
         </AnimatePresence>

@@ -2,29 +2,66 @@
 'use client';
 
 import { SpinWheel } from '@/components/page/spin-wheel';
+import { SourceLogos } from './source-logos';
+import { ProFilters } from './pro-filters';
+import { Button } from '../ui/button';
+import { Sparkles } from 'lucide-react';
 
 type HeroProps = {
-    onGenerate: () => void;
+    onGenerate: (isProTrial?: boolean) => void;
     loading: boolean;
     disabled?: boolean;
+    isPro?: boolean;
+    isProTrialAvailable?: boolean;
+    preselectedCategories: string[];
+    setPreselectedCategories: (categories: string[]) => void;
 };
 
-export function Hero({ onGenerate, loading, disabled = false }: HeroProps) {
+export function Hero({ 
+    onGenerate, 
+    loading, 
+    disabled = false, 
+    isPro = false,
+    isProTrialAvailable = false,
+    preselectedCategories, 
+    setPreselectedCategories 
+}: HeroProps) {
     return (
         <div className="text-center py-12 md:py-20 px-4 border-b">
-            <h2 className="text-4xl sm:text-5xl md:text-6xl font-black font-headline mb-4 text-foreground tracking-tight">
-                Unleash Your Inner Entrepreneur
+            <h2 className="relative inline-block text-4xl sm:text-5xl md:text-6xl font-black font-headline mb-4 text-foreground tracking-tight group">
+                Unleash Your Inner Entrepreneur with Data-Validated Ideas
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2/3 h-1.5 bg-primary/80 rounded-full scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out origin-center"></span>
             </h2>
-            <p className="text-lg text-muted-foreground mb-4 max-w-2xl mx-auto">
-                Stuck in a creative rut? Our AI-powered engine ignites your next big business idea based on today's hottest trends.
+            <p className="text-xl text-muted-foreground mb-10 max-w-3xl mx-auto">
+                Go from creative rut to confident founder. Get AI-powered business ideas backed by real market trends from Bloomberg, TechCrunch, and industry experts.
             </p>
-             <p className="text-base text-muted-foreground/90 mb-4 max-w-3xl mx-auto">
-                Get instant summaries of fresh startup ideas — from core concept to market opportunities.
-            </p>
-            <p className="text-base text-muted-foreground/90 mb-10 max-w-3xl mx-auto">
-                Sourced from <span className="font-semibold text-blue-400">Bloomberg</span>, <span className="font-semibold text-green-400">TechCrunch</span>, discussions on <span className="font-semibold text-orange-400">Hacker News</span> & <span className="font-semibold text-purple-400">Indie Hackers</span>, and many more.
-            </p>
-            <SpinWheel onGenerate={onGenerate} loading={loading} disabled={disabled} />
+            {(isPro || isProTrialAvailable) && (
+                <ProFilters
+                    selectedCategories={preselectedCategories}
+                    onCategoryChange={setPreselectedCategories}
+                    isPro={isPro}
+                />
+            )}
+            <SpinWheel 
+                onGenerate={() => onGenerate()} 
+                loading={loading} 
+                disabled={disabled} 
+                isPro={isPro} 
+            />
+            {isProTrialAvailable && !isPro && (
+                <div className="mt-4">
+                    <Button 
+                        variant="link" 
+                        className="text-primary"
+                        onClick={() => onGenerate(true)}
+                        disabled={loading}
+                    >
+                       <Sparkles className="mr-2 h-4 w-4" />
+                        Get One Free Pro Generation
+                    </Button>
+                </div>
+            )}
+            <SourceLogos />
         </div>
     );
 }

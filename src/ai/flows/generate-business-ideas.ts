@@ -1,9 +1,10 @@
+
 'use server';
 
 /**
  * @fileOverview This file defines a Genkit flow for generating business ideas based on current trends and news.
  *
- * The flow takes no input and returns a list of business ideas with their categories and sources.
+ * The flow takes a count and optional categories and returns a list of business ideas.
  * - generateBusinessIdeas - A function that triggers the business idea generation process.
  * - BusinessIdea - The type definition for a single business idea.
  * - BusinessIdeasOutput - The output type for the generateBusinessIdeas function.
@@ -20,6 +21,14 @@ const BusinessIdeaSchema = z.object({
 
 export type BusinessIdea = z.infer<typeof BusinessIdeaSchema>;
 
+const GenerateBusinessIdeasInputSchema = z.object({
+    count: z.number().default(3).describe('The number of business ideas to generate.'),
+    categories: z.array(z.string()).optional().describe('A list of categories to focus on for idea generation.'),
+});
+
+export type GenerateBusinessIdeasInput = z.infer<typeof GenerateBusinessIdeasInputSchema>;
+
+
 const BusinessIdeasOutputSchema = z.object({
   ideas: z.array(BusinessIdeaSchema).optional().describe('A list of business ideas.'),
   error: z.string().optional().describe('An error message if the operation failed, e.g. due to rate limiting.'),
@@ -28,9 +37,9 @@ const BusinessIdeasOutputSchema = z.object({
 export type BusinessIdeasOutput = z.infer<typeof BusinessIdeasOutputSchema>;
 
 
-export async function generateBusinessIdeas(): Promise<BusinessIdeasOutput> {
+export async function generateBusinessIdeas(input: GenerateBusinessIdeasInput): Promise<BusinessIdeasOutput> {
   try {
-    return await generateBusinessIdeasFlow({});
+    return await generateBusinessIdeasFlow(input);
   } catch (e: any) {
     return { error: e.message };
   }
@@ -38,11 +47,16 @@ export async function generateBusinessIdeas(): Promise<BusinessIdeasOutput> {
 
 const prompt = ai.definePrompt({
   name: 'businessIdeaPrompt',
+  input: {schema: GenerateBusinessIdeasInputSchema},
   prompt: `You are a business idea generator. It is currently ${new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })}. The ideas you generate must be relevant to right now. Generate a list of innovative business ideas based on current trends and news from credible sources. For each idea, you must cite the specific source name (e.g., Bloomberg, TechCrunch, Hacker News, Indie Hackers, a specific market report).
+
+  {{#if categories}}
+  The generated ideas MUST be related to the following categories: {{{categories}}}.
+  {{/if}}
 
   Structure your output in JSON format. Here are some examples of the desired output format:
   {
@@ -66,7 +80,7 @@ const prompt = ai.definePrompt({
   Focus on feasibility and profitability.
   Consider current events, new technologies, and discussions on platforms like Product Hunt, Hacker News, and Indie Hackers, as well as news from major financial publications.
   Be creative!
-  Generate exactly 3 distinct ideas.
+  Generate exactly {{{count}}} distinct ideas.
 `,
   output: {schema: z.object({ideas: z.array(BusinessIdeaSchema)})},
   model: 'googleai/gemini-2.5-flash',
@@ -75,17 +89,17 @@ const prompt = ai.definePrompt({
 const generateBusinessIdeasFlow = ai.defineFlow(
   {
     name: 'generateBusinessIdeasFlow',
-    inputSchema: z.object({}),
+    inputSchema: GenerateBusinessIdeasInputSchema,
     outputSchema: BusinessIdeasOutputSchema,
   },
-  async () => {
+  async (input) => {
     let attempts = 0;
     const maxAttempts = 3;
     const delay = 2000;
 
     while (attempts < maxAttempts) {
       try {
-        const {output} = await prompt({});
+        const {output} = await prompt(input);
         if (output?.ideas) {
           return { ideas: output.ideas };
         }

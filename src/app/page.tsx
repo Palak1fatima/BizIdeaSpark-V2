@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import type { BusinessIdea } from '@/ai/flows/generate-business-ideas';
 import { generateBusinessIdeas } from '@/ai/flows/generate-business-ideas';
 import { useToast } from "@/hooks/use-toast";
@@ -12,20 +12,37 @@ import { IdeaList } from '@/components/page/idea-list';
 import { IdeaListSkeleton } from '@/components/page/idea-list-skeleton';
 import { Lightbulb } from 'lucide-react';
 import { useClerk, useUser } from '@clerk/nextjs';
+import { useSearchParams } from 'next/navigation';
 
-export default function Home() {
+const PRO_TRIAL_KEY = 'bizIdeaSparkProTrialUsed';
+
+function HomePageContent() {
   const [ideas, setIdeas] = useState<BusinessIdea[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [preselectedCategories, setPreselectedCategories] = useState<string[]>([]);
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded, user } = useUser();
   const { openSignIn } = useClerk();
+  const searchParams = useSearchParams();
+  const [proTrialUsed, setProTrialUsed] = useState(true); // Default to true, check on client
+
+  // For testing: check for ?pro=true in URL or a custom attribute in Clerk
+  const isPro = useMemo(() => {
+    if (!isSignedIn) return false;
+    const userIsPro = user?.publicMetadata?.pro === true;
+    const urlIsPro = searchParams.get('pro') === 'true';
+    return userIsPro || urlIsPro;
+  }, [isSignedIn, user, searchParams]);
 
   useEffect(() => {
     setIsClient(true);
+    // Check if the pro trial has been used from localStorage
+    const trialUsed = window.localStorage.getItem(PRO_TRIAL_KEY) === 'true';
+    setProTrialUsed(trialUsed);
   }, []);
 
   useEffect(() => {
@@ -34,7 +51,7 @@ export default function Home() {
     }
   }, [ideas, loading]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = async (isProTrial: boolean = false) => {
     if (!isSignedIn) {
       openSignIn({
         appearance: {
@@ -52,11 +69,25 @@ export default function Home() {
     setLoading(true);
     setIdeas([]);
 
+    const generationIsPro = isPro || isProTrial;
+
     try {
-      const result = await generateBusinessIdeas();
+      const ideaCount = generationIsPro ? 12 : 3;
+      const result = await generateBusinessIdeas({ 
+        count: ideaCount,
+        categories: generationIsPro ? preselectedCategories : undefined,
+       });
 
       if (result.ideas && result.ideas.length > 0) {
         setIdeas(result.ideas);
+        if(isProTrial) {
+            window.localStorage.setItem(PRO_TRIAL_KEY, 'true');
+            setProTrialUsed(true);
+            toast({
+                title: "Pro Trial Used",
+                description: "You've experienced the power of Pro! Upgrade to get unlimited Pro generations.",
+            })
+        }
       } else if (result.error) {
         toast({
             title: "An Error Occurred",
@@ -114,6 +145,8 @@ export default function Home() {
       return matchesSearch && matchesCategory;
     });
   }, [ideas, searchTerm, selectedCategories]);
+  
+  const isProTrialAvailable = isClient && !isPro && !proTrialUsed;
 
   return (
     <div className="flex flex-col min-h-screen bg-background font-body">
@@ -122,6 +155,10 @@ export default function Home() {
         <Hero 
           onGenerate={handleGenerate} 
           loading={loading || !isLoaded}
+          isPro={isPro}
+          isProTrialAvailable={isProTrialAvailable}
+          preselectedCategories={preselectedCategories}
+          setPreselectedCategories={setPreselectedCategories}
         />
         
         {loading && isClient && (
@@ -141,7 +178,7 @@ export default function Home() {
                 onCategoryChange={handleCategoryChange}
               />
               <div className="lg:col-span-3">
-                <IdeaList ideas={filteredIdeas} />
+                <IdeaList ideas={filteredIdeas} isPro={isPro} />
               </div>
             </div>
           </div>
@@ -163,4 +200,12 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomePageContent />
+    </Suspense>
+  )
 }

@@ -3,13 +3,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Zap, Lock } from 'lucide-react';
+import { Loader2, Zap, Lock, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SpinWheelProps = {
   onGenerate: () => void;
   loading: boolean;
   disabled?: boolean;
+  isPro?: boolean;
 };
 
 const sparks = Array.from({ length: 12 });
@@ -52,7 +53,7 @@ const sparkVariants = {
   }),
 };
 
-export function SpinWheel({ onGenerate, loading, disabled = false }: SpinWheelProps) {
+export function SpinWheel({ onGenerate, loading, disabled = false, isPro = false }: SpinWheelProps) {
   const [isSpinning, setIsSpinning] = useState(false);
 
   const handleSpin = () => {
@@ -66,6 +67,8 @@ export function SpinWheel({ onGenerate, loading, disabled = false }: SpinWheelPr
       setIsSpinning(false);
     }
   }, [loading, isSpinning]);
+  
+  const buttonText = isPro ? `Generate 12 Ideas` : `Generate 3 Ideas`;
 
   return (
     <div className="relative flex flex-col items-center justify-center group">
@@ -111,10 +114,10 @@ export function SpinWheel({ onGenerate, loading, disabled = false }: SpinWheelPr
           disabled={loading || isSpinning || disabled}
           className={cn(
             "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-            "w-32 h-32 md:w-36 md:h-36",
+            "w-36 h-36 md:w-40 md:h-40",
             "rounded-full bg-background border-[6px] border-background",
             "flex flex-col items-center justify-center text-center",
-            "font-semibold text-lg text-foreground",
+            "font-semibold text-base text-foreground px-2",
             "transition-all duration-300 transform",
             "shadow-lg hover:shadow-primary/40",
             "disabled:opacity-70 disabled:cursor-not-allowed",
@@ -153,8 +156,8 @@ export function SpinWheel({ onGenerate, loading, disabled = false }: SpinWheelPr
                 exit={{ opacity: 0, scale: 0.8 }}
                 className="flex flex-col items-center"
               >
-                <Zap className="h-8 w-8 text-primary" />
-                <span className="mt-1">Spin</span>
+                {isPro ? <Sparkles className="h-8 w-8 text-primary" /> : <Zap className="h-8 w-8 text-primary" />}
+                <span className="mt-1">{buttonText}</span>
               </motion.div>
             )}
           </AnimatePresence>
